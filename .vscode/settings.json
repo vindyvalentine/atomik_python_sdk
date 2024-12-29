@@ -1,0 +1,4 @@
+{
+    "python.envFile": "${workspaceFolder}/DISABLE_THIS_FEATURE.env",
+    "ruff.nativeServer": true,
+}
