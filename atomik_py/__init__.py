@@ -1,1 +1,1 @@
-from .atomik import Atomik  # noqa: F401
+from .atomik import Atomik

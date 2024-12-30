@@ -279,3 +279,15 @@ atomik/media/
 .env
 .envs/*
 !.envs/.local/
+
+# Ignore everything in root
+/*
+
+# But allow these specific files/directories
+!/.gitignore
+!/atomik_py/
+!/setup.py
+!/README.md
+!/LICENSE
+!/requirements.txt
+!/pyproject.toml

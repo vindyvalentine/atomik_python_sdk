@@ -40,6 +40,7 @@ target-version = "py312"
 extend-exclude = [
     "*/migrations/*.py",
     "staticfiles/*",
+    "atomik_py/__init__.py",
 ]
 
 [tool.ruff.lint]
