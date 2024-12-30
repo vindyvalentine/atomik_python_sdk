@@ -1,6 +1,18 @@
-class AtomikBaseError(Exception):
+class BaseError(Exception):
     pass
 
 
-class AtomikServerError(AtomikBaseError):
+class AuthError(BaseError):
+    pass
+
+
+class ServerError(BaseError):
+    pass
+
+
+class ServerTimeoutError(ServerError):
+    pass
+
+
+class InvalidSignatureError(ServerError):
     pass

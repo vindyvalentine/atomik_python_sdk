@@ -5,7 +5,7 @@ from typing import Any
 import requests
 
 
-def prepare_file_for_requests(file_stream: io.IOBase):
+def prepare_file_for_request(file_stream: io.IOBase):
     filename = os.path.basename(file_stream.name)  # noqa: PTH119
     return (filename, file_stream, "application/pdf")
 

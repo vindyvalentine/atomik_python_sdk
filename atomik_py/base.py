@@ -10,7 +10,10 @@ from typing import TypeVar
 import requests
 from Crypto.PublicKey import RSA
 
-from atomik_py.exceptions import AtomikBaseError
+from atomik_py.exceptions import AuthError
+from atomik_py.exceptions import InvalidSignatureError
+from atomik_py.exceptions import ServerError
+from atomik_py.exceptions import ServerTimeoutError
 from atomik_py.signature import generate_header
 from atomik_py.signature import verify_symmetric_signature
 from atomik_py.utils import combine_request_body
@@ -19,19 +22,11 @@ T = TypeVar("T")
 
 
 class AtomikBase:
-    def __init__(
-        self,
-        private_key: RSA.RsaKey,
-        client_id: str,
-        client_secret: str,
-        base_url: str,
-    ):
-        self.private_key = private_key
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.base_url = base_url
-        self.access_token = None
-        self.token_expiration = None
+    private_key: RSA.RsaKey
+    client_id: str
+    client_secret: str
+    base_url: str
+    timeout: int
 
     def _get_token(self):
         auth_value = f"{self.client_id}:{self.client_secret}"
@@ -44,33 +39,32 @@ class AtomikBase:
 
         data = {"grant_type": "client_credentials"}
 
-        response = requests.post(
-            f"{self.base_url}/oauth/token/",
-            headers=headers,
-            data=data,
-            timeout=10,
-        )
+        try:
+            response = requests.post(
+                f"{self.base_url}/oauth/token/",
+                headers=headers,
+                data=data,
+                timeout=self.timeout,
+            )
+        except requests.Timeout:
+            raise ServerTimeoutError from None
+
+        response_json = self.validate_response_basic(response)
 
         if response.status_code == 200:  # noqa: PLR2004
-            token_data = response.json()
-            self.access_token = token_data.get("access_token")
-            expires_in = token_data.get(
-                "expires_in",
-                3600,
-            )  # Default expiration time is 1 hour
+            self.access_token = response_json["access_token"]
+            expires_in = response_json["expires_in"]
             self.token_expiration = time.time() + expires_in
             return self.access_token
-        raise AtomikBaseError(
-            "Error getting access token",
-        )
+        raise AuthError
 
     def get_access_token(self):
-        if self.access_token is None or self._is_token_expired():
+        if self.access_token is None:
+            return self._get_token()
+        is_token_expired = time.time() >= self.token_expiration
+        if is_token_expired:
             return self._get_token()
         return self.access_token
-
-    def _is_token_expired(self):
-        return time.time() >= self.token_expiration
 
     def make_authenticated_request(  # noqa: PLR0913
         self,
@@ -100,16 +94,27 @@ class AtomikBase:
             )[0]
         )
 
-        response: requests.Response = requests.request(
-            method=method,
-            url=f"{self.base_url}{path}",
-            headers=headers,
-            data=data,
-            json=json,
-            files=files,
-            timeout=10,
-        )
+        try:
+            response: requests.Response = requests.request(
+                method=method,
+                url=f"{self.base_url}{path}",
+                headers=headers,
+                data=data,
+                json=json,
+                files=files,
+                timeout=self.timeout,
+            )
+        except requests.Timeout:
+            raise ServerTimeoutError from None
         return response
+
+    @staticmethod
+    def validate_response_basic(response: requests.Response):
+        try:
+            response_json = response.json()
+        except requests.JSONDecodeError:
+            raise ServerError from None
+        return response_json
 
     @staticmethod
     def handle_error(response: requests.Response):
@@ -119,30 +124,32 @@ class AtomikBase:
                 signature=response.headers["X-SIGNATURE"],
                 timestamp_iso=response.headers["X-TIMESTAMP"],
                 status_code=str(response.status_code),
-                error=response.json(),
+                error=response.json()["error"],
             )
         return None
 
     def validate_response(self, response: requests.Response):
-        signature = response.headers["X-SIGNATURE"]
-        timestamp = datetime.fromisoformat(response.headers["X-TIMESTAMP"])
+        response_json = self.validate_response_basic(response)
+        try:
+            signature = response.headers["X-SIGNATURE"]
+            timestamp = datetime.fromisoformat(response.headers["X-TIMESTAMP"])
+        except KeyError:
+            raise ServerError from None
         status_code = str(response.status_code)
-        verified = verify_symmetric_signature(
-            client_id=self.client_id,
-            timestamp=timestamp,
-            http_status=status_code,
-            response_body=response.json(),
-            received_signature=signature,
-        )
+        try:
+            verified = verify_symmetric_signature(
+                client_id=self.client_id,
+                timestamp=timestamp,
+                http_status=status_code,
+                response_body=response_json,
+                received_signature=signature,
+            )
+        except Exception:  # noqa: BLE001
+            raise InvalidSignatureError from None
         if not verified:
-            pass  # FIXME
+            raise InvalidSignatureError
 
         return self.handle_error(response=response)
-
-
-@dataclass
-class AtomikErrorDetailResponse:
-    detail: str | list[str]
 
 
 @dataclass
@@ -151,30 +158,7 @@ class AtomikErrorResponse:
     signature: str
     timestamp_iso: str
     status_code: str
-    error: AtomikErrorDetailResponse
-
-    def __post_init__(self):
-        if isinstance(self.error, dict):
-            try:
-                self.error = AtomikErrorDetailResponse(**self.error)
-            except Exception as e:
-                raise TypeError(
-                    "Failed to convert dict to AtomikErrorDetailResponse",
-                ) from e
-
-        elif isinstance(self.error, list):
-            try:
-                self.error = AtomikErrorDetailResponse(
-                    detail=[item for item in self.error if isinstance(item, str)],
-                )
-
-            except Exception as e:
-                raise TypeError(
-                    "Failed to convert list elements to AtomikErrorDetailResponse",
-                ) from e
-
-        if not isinstance(self.error, (AtomikErrorDetailResponse, list)):
-            raise TypeError("Unsupported type")
+    error: str | list[str] | dict | list[dict]
 
 
 @dataclass
