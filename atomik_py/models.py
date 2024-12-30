@@ -1,4 +1,4 @@
-from .base import mixin_base_response
+from atomik_py.base import mixin_base_response
 
 
 @mixin_base_response

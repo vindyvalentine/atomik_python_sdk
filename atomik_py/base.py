@@ -11,10 +11,9 @@ import requests
 from Crypto.PublicKey import RSA
 
 from atomik_py.exceptions import AtomikBaseError
-
-from .signature import generate_header
-from .signature import verify_symmetric_signature
-from .utils import combine_request_body
+from atomik_py.signature import generate_header
+from atomik_py.signature import verify_symmetric_signature
+from atomik_py.utils import combine_request_body
 
 T = TypeVar("T")
 

@@ -1,12 +1,11 @@
 import io
 
+from atomik_py.base import AtomikBase
 from atomik_py.models import SignerGetFileResponse
 from atomik_py.models import SignerSignResponse
 from atomik_py.models import SignerVerifyRespons
-
-from .base import AtomikBase
-from .utils import construct_model
-from .utils import prepare_file_for_requests
+from atomik_py.utils import construct_model
+from atomik_py.utils import prepare_file_for_requests
 
 
 class Atomik(AtomikBase):
