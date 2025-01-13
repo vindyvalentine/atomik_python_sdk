@@ -1,18 +1,18 @@
 class BaseError(Exception):
-    pass
+    """Base class for all exceptions in this module."""
 
 
 class AuthError(BaseError):
-    pass
+    """Exception raised for authentication errors."""
 
 
 class ServerError(BaseError):
-    pass
+    """Exception raised for server-related errors."""
 
 
 class ServerTimeoutError(ServerError):
-    pass
+    """Exception raised when the server times out."""
 
 
 class InvalidSignatureError(ServerError):
-    pass
+    """Exception raised for invalid signature errors."""

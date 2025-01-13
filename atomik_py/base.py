@@ -3,6 +3,7 @@ import time
 from dataclasses import dataclass
 from dataclasses import fields
 from datetime import datetime
+from http import HTTPStatus
 from typing import Generic
 from typing import Literal
 from typing import TypeVar
@@ -51,7 +52,7 @@ class AtomikBase:
 
         response_json = self.validate_response_basic(response)
 
-        if response.status_code == 200:  # noqa: PLR2004
+        if response.status_code == HTTPStatus.OK:
             self.access_token = response_json["access_token"]
             expires_in = response_json["expires_in"]
             self.token_expiration = time.time() + expires_in
@@ -118,12 +119,12 @@ class AtomikBase:
 
     @staticmethod
     def handle_error(response: requests.Response):
-        if response.status_code != 200:  # noqa: PLR2004
+        if response.status_code != HTTPStatus.OK:
             return AtomikErrorResponse(
                 ok=False,
                 signature=response.headers["X-SIGNATURE"],
                 timestamp_iso=response.headers["X-TIMESTAMP"],
-                status_code=str(response.status_code),
+                status_code=response.status_code,
                 error=response.json()["error"],
             )
         return None
@@ -135,7 +136,7 @@ class AtomikBase:
             timestamp = datetime.fromisoformat(response.headers["X-TIMESTAMP"])
         except KeyError:
             raise ServerError from None
-        status_code = str(response.status_code)
+        status_code = response.status_code
         try:
             verified = verify_symmetric_signature(
                 client_id=self.client_id,
@@ -157,7 +158,7 @@ class AtomikErrorResponse:
     ok: Literal[False]
     signature: str
     timestamp_iso: str
-    status_code: str
+    status_code: int
     error: str | list[str] | dict | list[dict]
 
 
@@ -166,7 +167,7 @@ class AtomikBaseResponse(Generic[T]):
     ok: Literal[True]
     signature: str
     timestamp_iso: str
-    status_code: str
+    status_code: int
     response: T
 
     def __post_init__(self):

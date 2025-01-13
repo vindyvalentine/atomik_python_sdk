@@ -25,6 +25,6 @@ def construct_model(model, response: requests.Response, response_data: Any):
         ok=True,
         signature=response.headers["X-SIGNATURE"],
         timestamp_iso=response.headers["X-TIMESTAMP"],
-        status_code=str(response.status_code),
+        status_code=response.status_code,
         response=response_data,
     )
