@@ -154,12 +154,22 @@ class AtomikBase:
 
 
 @dataclass
+class AtomikErrorInfo:
+    detail: str | list[str] | dict | list[dict]
+    code: str | None
+
+
+@dataclass
 class AtomikErrorResponse:
     ok: Literal[False]
     signature: str
     timestamp_iso: str
     status_code: int
-    error: str | list[str] | dict | list[dict]
+    error: AtomikErrorInfo
+
+    def __post_init__(self):
+        if isinstance(self.error, dict):
+            self.error = AtomikErrorInfo(**self.error)
 
 
 @dataclass
